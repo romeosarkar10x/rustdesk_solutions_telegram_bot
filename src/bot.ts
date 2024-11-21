@@ -3,15 +3,14 @@ import { Config } from "./config.ts";
 import * as AWS from "./aws.ts";
 import Logger from "./logger.ts";
 
-const authorizedUserIds = [];
-authorizedUserIds.push();
-
 class Bot {
     _awsClient: AWS.Client;
     _telegramBot: Telegram.Bot;
     _username: Promise<string | null>;
     _init: Promise<void>;
     _config: Config;
+    _authorizedUserIds: [number];
+    _authorizedUsernames: [number];
 
     constructor(config: Config) {
         this._config = config;
@@ -27,18 +26,25 @@ class Bot {
     }
     _onInit(this: Bot) {
         /* webhook handler */
-        console.log(`https://${this._config.host}`);
-        // this._telegramBot.api.setWebhook(`https://${this._config.host}`);
+        console.log("Webhook url:", `https://${this._config.host}`);
+        const ret = this._telegramBot.api.setWebhook(`https://${this._config.host}`);
+        ret.then((output) => {
+            console.log(output);
+        });
+
         Deno.serve({
-            port: this._config.port,
+            port: 443,
+            cert: this._config.cert,
+            key: this._config.key,
         }, this._handler.bind(this));
 
         this._telegramBot.on("message", async (message): Promise<void> => {
-            console.log("message");
             const chat = message.chat;
             const type = chat.type;
 
             const text = message.message.text;
+
+            console.log("text:", text);
 
             if (text === undefined) {
                 return;
@@ -57,7 +63,6 @@ class Bot {
     }
 
     _handler(req: Request): Response {
-        console.log("hit");
         if (req.method !== "POST") {
             return new Response(null, {
                 status: 404,
@@ -83,24 +88,24 @@ class Bot {
     }
 
     _update(body: any): void {
-        console.log(body);
+        console.log(JSON.stringify(body));
         this._telegramBot.handleUpdate(body);
     }
     _help(): string {
         return `<b>Available Commands:</b>
 
-<ul>
-  <li><b>/start</b> - Starts the EC2 instance for the RustDesk server and updates the DNS records if required.</li>
-  <li><b>/stop</b> - Stops the EC2 instance to conserve resources.</li>
-  <li><b>/status</b> - Provides the current status of the EC2 instance (e.g., running or stopped).</li>
-  <li><b>/metrics</b> - Displays server performance metrics and statistics.</li>
-  <li><b>/help</b> - Lists all available commands and their descriptions.</li>
-  <li><b>/key</b> - [Functionality description required]</li>
-  <li><b>/</b> - [Functionality description required]</li>
-</ul>
+<b><u>Server Management:</u></b>
+- <b>/start</b> - Starts the EC2 instance for the RustDesk server and updates the DNS records if required.
+- <b>/stop</b> - Stops the EC2 instance to conserve resources.
+- <b>/status</b> - Provides the current status of the EC2 instance (e.g., running or stopped).
+- <b>/metrics</b> - Displays server performance metrics and statistics.
 
-<i>Use the commands as needed to manage the server efficiently.</i>
-`;
+<b><u>User Management:</u></b>
+- <b>/add</b> - Adds a user to the bot's authenticated user list.
+- <b>/remove</b> - Removes a user from the bot's authenticated user list.
+
+<b>General:</b>
+- <b>/help</b> - Lists all available commands and their descriptions.`;
     }
 
     async _start(): Promise<string> {
@@ -119,6 +124,7 @@ class Bot {
     async _stop(): Promise<string> {
         try {
             await this._awsClient.stopInstance();
+            return "[SUCCESS]";
         } catch (e) {
             if (e instanceof Error) {
                 return `[ERROR] -> { ${e.message} }`;

@@ -9,9 +9,8 @@ interface Config {
     awsAccessKeySecret: string;
     awsInstanceId: string;
     host: string;
-    port: number;
-    // key: string;
-    // cert: string;
+    key: string;
+    cert: string;
 }
 
 env({ export: true });
@@ -37,22 +36,28 @@ const config: Config = (() => {
         Logger.logErrorAndExit("Missing `HOST` environment variable.");
     }
 
-    if (!Deno.env.has("PORT")) {
-        Logger.logErrorAndExit("Missing `PORT` environment variable.");
+    if (!Deno.env.has("SSL_CERT_PATH")) {
+        Logger.logErrorAndExit("Missing `SSL_CERT_PATH` environment variable.");
     }
+
+    if (!Deno.env.has("SSL_KEY_PATH")) {
+        Logger.logErrorAndExit("Missing `SSL_KEY_PATH` environment variable.");
+    }
+
+    const textDecoder = new TextDecoder("utf-8");
 
     return {
         telegramBotToken: Deno.env.get("TELEGRAM_BOT_TOKEN") as string,
         awsRegion: Deno.env.get("AWS_REGION") as string,
         awsAccessKeyId: Deno.env.get("AWS_ACCESS_KEY_ID") as string,
-        awsAccessKeySecret: Deno.env.get("AWS_SECRET_ACCESS_KEY") as string,
+        awsAccessKeySecret: Deno.env.get("AWS_ACCESS_KEY_SECRET") as string,
         awsInstanceId: Deno.env.get("AWS_INSTANCE_ID") as string,
         host: Deno.env.get("HOST") as string,
-        port: +(Deno.env.get("PORT") as string),
-        // key: fs.readFileSync(`./keys/privkey1.pem`, "ascii"),
-        // cert: fs.readFileSync(`./keys/fullchain1.pem`, "ascii"),
+        key: textDecoder.decode(Deno.readFileSync(Deno.env.get("SSL_KEY_PATH") as string)),
+        cert: textDecoder.decode(Deno.readFileSync(Deno.env.get("SSL_CERT_PATH") as string)),
     };
 })();
+// console.log(config);
 
 export { config };
 export type { Config };

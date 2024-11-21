@@ -1,3 +1,4 @@
-output.json
-curl.ps1
-.env
+/output.json
+/curl.ps1
+/.env
+/ssl
